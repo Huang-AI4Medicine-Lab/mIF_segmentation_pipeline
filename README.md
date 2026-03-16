@@ -1,6 +1,6 @@
-# mIF Sequential Pipeline
+# WSI Multiplex Pipeline
 
-Nextflow DSL2 pipeline for sequential multiplex immunofluorescence (mIF) image processing. The workflow generates tissue masks, optionally estimates autofluorescence, extracts ROIs, runs nuclei segmentation, optionally runs marker-channel segmentation and mask merging, and produces whole-slide segmentation masks.
+Nextflow pipeline for WSI multiplex imaging segmentation. The workflow generates tissue masks, optionally estimates autofluorescence, extracts ROIs, runs nuclei segmentation, optionally runs marker-channel segmentation and mask merging, and produces whole-slide segmentation masks.
 
 ## Repository Contents
 
