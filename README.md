@@ -33,8 +33,3 @@ Run with:
 ```bash
 nextflow run modular_pipeline_sequential.nf -c modular_pipeline.config
 ```
-
-## Notes
-
-- The current config is set up for a SLURM-based environment.
-- Generated files such as `.nextflow/`, `.nextflow.log*`, and `__pycache__/` are intentionally excluded from version control.
