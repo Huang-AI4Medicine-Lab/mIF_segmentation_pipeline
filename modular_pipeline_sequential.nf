@@ -227,11 +227,63 @@ process GenerateWSIMask {
     """
 }
 
+process ExtractCellsRegionBased {
+    publishDir params.cell_extraction_output ?: './cell_extraction', mode: 'copy', pattern: "*_cell_frame.csv"
+
+    input:
+    tuple val(sample_name), path(roi_dir), path(seg_mask_dir)
+
+    output:
+    tuple val(sample_name), path("${sample_name}_cell_frame.csv"), emit: cell_frame
+
+    script:
+    def dilate = params.cell_extraction_dilate_masks ? "--dilate_masks --dilation_size ${params.cell_extraction_dilation_size}" : ""
+    """
+    python ${params.script_dir}/extract_single_cell_info.py \
+        --mode region_based \
+        --sample_name "$sample_name" \
+        --roi_dir "$roi_dir" \
+        --mask_dir "$seg_mask_dir" \
+        --save_path "${sample_name}_cell_frame.csv" \
+        --marker_spec "${params.cell_extraction_markers}" \
+        --mask_suffix "${params.cell_extraction_mask_suffix}" \
+        ${dilate}
+    """
+}
+
+process ExtractCellsImageBased {
+    publishDir params.cell_extraction_output ?: './cell_extraction', mode: 'copy', pattern: "*_cell_frame.csv"
+
+    input:
+    tuple val(sample_name), path(image_path), path(af_params), path(wsi_mask_path)
+
+    output:
+    tuple val(sample_name), path("${sample_name}_cell_frame.csv"), emit: cell_frame
+
+    script:
+    def dilate = params.cell_extraction_dilate_masks ? "--dilate_masks --dilation_size ${params.cell_extraction_dilation_size}" : ""
+    def af_flag = (params.apply_af_correction && af_params.name != 'NO_AF_PARAMS') ? "--remove_autofluorescence --autofluorescence_params ${af_params} --af_channel ${params.af_channel}" : ""
+    """
+    python ${params.script_dir}/extract_single_cell_info.py \
+        --mode image_based \
+        --sample_name "$sample_name" \
+        --image_path "$image_path" \
+        --wsi_mask_path "$wsi_mask_path" \
+        --save_path "${sample_name}_cell_frame.csv" \
+        --marker_spec "${params.cell_extraction_markers}" \
+        --mask_suffix "${params.cell_extraction_mask_suffix}" \
+        ${af_flag} \
+        ${dilate}
+    """
+}
+
 // ============================================================================
 // MAIN WORKFLOW ENTRY POINT
 // ============================================================================
 
 workflow {
+    def noAfParamsFile = file("${params.script_dir}/NO_AF_PARAMS")
+
     // Read input files
     sample_names = Channel.fromPath(params.sample_list).splitText().map { it.trim() }
     image_paths = Channel.fromPath(params.image_list).splitText().map { it.trim() }
@@ -251,7 +303,7 @@ workflow {
     } else {
         // Add placeholder for AF params to maintain consistent tuple structure
         extract_input_ch = GenerateTissueMask.out.masks
-            .map { sample, image, mask -> tuple(sample, image, mask, file("NO_AF_PARAMS")) }
+            .map { sample, image, mask -> tuple(sample, image, mask, noAfParamsFile) }
     }
 
     // step 3: extract regions
@@ -316,5 +368,32 @@ workflow {
     
     // Step 4: Generate WSI masks
     GenerateWSIMask(wsi_input_ch)
+
+    // Step 5: Optionally extract per-cell intensity data
+    if (params.run_cell_extraction) {
+        if (params.cell_extraction_mode == 'region_based') {
+            region_cell_input_ch = roi_dir_ch
+                .join(final_seg_ch)
+                .map { sample, roi_dir, seg_dir -> tuple(sample, roi_dir, seg_dir) }
+
+            ExtractCellsRegionBased(region_cell_input_ch)
+        } else if (params.cell_extraction_mode == 'image_based') {
+            if (params.apply_af_correction) {
+                af_context_ch = EstimateAutofluorescence.out.af_params
+                    .map { sample, image, mask, af_params -> tuple(sample, image, af_params) }
+            } else {
+                af_context_ch = samples_ch
+                    .map { sample, image -> tuple(sample, image, noAfParamsFile) }
+            }
+
+            image_cell_input_ch = af_context_ch
+                .join(GenerateWSIMask.out)
+                .map { sample, image, af_params, wsi_mask -> tuple(sample, image, af_params, wsi_mask) }
+
+            ExtractCellsImageBased(image_cell_input_ch)
+        } else {
+            error "Unsupported cell_extraction_mode: ${params.cell_extraction_mode}. Choose 'region_based' or 'image_based'."
+        }
+    }
 }
 

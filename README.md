@@ -1,6 +1,6 @@
 # mIF Sequential Pipeline
 
-Nextflow DSL2 pipeline for sequential multiplex immunofluorescence (mIF) image processing. The workflow generates tissue masks, optionally estimates autofluorescence, extracts ROIs, runs nuclei segmentation, optionally runs marker-channel segmentation and mask merging, and produces whole-slide segmentation masks.
+Nextflow DSL2 pipeline for sequential multiplex immunofluorescence (mIF) image processing. The workflow generates tissue masks, optionally estimates autofluorescence, extracts ROIs, runs nuclei segmentation, optionally runs marker-channel segmentation and mask merging, produces whole-slide segmentation masks, and can optionally export per-cell intensity tables.
 
 ## Repository Contents
 
@@ -16,6 +16,7 @@ Nextflow DSL2 pipeline for sequential multiplex immunofluorescence (mIF) image p
 4. Segment nuclei in ROIs
 5. Optionally segment marker channels and merge masks
 6. Reconstruct final WSI-level masks
+7. Optionally extract per-cell intensity measurements
 
 ## Running
 
@@ -27,6 +28,14 @@ Update the paths in `modular_pipeline.config` before running, especially:
 - output directories
 - Conda environment paths
 - SLURM/executor settings
+
+If you enable cell extraction, also set:
+
+- `run_cell_extraction`
+- `cell_extraction_mode`
+- `cell_extraction_markers`
+
+`cell_extraction_mode = 'region_based'` measures cells from the per-ROI masks and records ROI-local plus WSI-adjusted centroids. `cell_extraction_mode = 'image_based'` measures cells from the reconstructed whole-slide mask and can apply the saved autofluorescence correction parameters to the whole-slide image before intensity extraction.
 
 Run with:
 
