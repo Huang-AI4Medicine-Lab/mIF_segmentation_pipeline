@@ -5,6 +5,7 @@ import os
 import tifffile
 import json
 from typing import Dict
+import zarr
 from tqdm import tqdm
 from autofluorescence_utils import *
 
@@ -30,13 +31,20 @@ def main():
     parser.add_argument("--length_scale_px", type=int, default=2048, help="Controls spatial smoothness scale (for sampling density only).")
     parser.add_argument("--alpha_max_factor", type=float, default=1.25, help="Clamp spatial alpha to <= factor*global_alpha.")
     parser.add_argument("--save_alpha_maps_dir", default=None, help="If set, saves per-channel alpha previews (downsampled).")
+    parser.add_argument("--lazy_loading", action='store_true')
     parser.add_argument("--seed", type=int, default=123)
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
 
     print(f'Loading image stack...')
-    stack = tifffile.imread(args.stack_path)
+    if not args.lazy_loading:
+        stack = tifffile.imread(args.stack_path)
+    else:
+        tif_obj = tifffile.TiffFile(args.stack_path)
+        im_store = tif_obj.aszarr(level=0)
+        stack = zarr.open(im_store, mode='r')
+    
     if stack.ndim != 3:
         raise ValueError(f"Expected (C,H,W) stack, got shape {stack.shape}")
     C, H, W = stack.shape

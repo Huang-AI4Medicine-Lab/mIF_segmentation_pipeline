@@ -18,13 +18,16 @@ process GenerateTissueMask {
     path "${sample_name}_tissue_mask_overlay.jpg", emit: overlays
     
     script:
+    def lazy_load_tissue = params.lazy_load ? "--lazy_loading" : ""
     """
     python "${params.script_dir}/tissue_mask_generator.py" \
         --image_path "$image_path" \
         --sample_name "$sample_name" \
         --channel_reduce ${params.channel_reduce} \
         --num_thresholds ${params.num_thresholds} \
-        --thresh_mode ${params.thresh_mode}
+        --thresh_mode ${params.thresh_mode} \
+        --nuclei_channel ${params.nuclei_channel} \
+        ${lazy_load_tissue}
     """
 }
 
@@ -39,6 +42,7 @@ process EstimateAutofluorescence {
     tuple val(sample_name), path(image_path), path(tissue_mask), path("af_params/${sample_name}_global_params.csv"), emit: af_params
     
     script:
+    def lazy_load_af = params.lazy_load ? "--lazy_loading" : ""
     def smooth_field = params.af_smooth_field ? "--smooth_field" : ""
     def write_channels = params.af_write_channel_ims ? "--write_channel_ims" : ""
     def channels_arg = params.af_channels_to_correct ? "--channels_to_correct ${params.af_channels_to_correct}" : ""
@@ -58,6 +62,7 @@ process EstimateAutofluorescence {
         --drop_af_top_p ${params.af_drop_af_top_p} \
         ${smooth_field} \
         ${write_channels} \
+        ${lazy_load_af} \
         ${channels_arg}
 
     if [ "${params.save_intermediate}" = "true" ]; then
@@ -81,6 +86,7 @@ process ExtractRegions {
     tuple val(sample_name), path("${sample_name}_region_mask_overlay.jpg"), emit: region_overlay
     
     script:
+    def lazy_load_regions = params.lazy_load ? "--lazy_loading" : ""
     def roi_dest = params.roi_output ?: './extracted_rois'
     def af_flag = (params.apply_af_correction && af_params.name != 'NO_AF_PARAMS') ? "--remove_autofluorescence --autofluorescence_params ${af_params} --af_channel ${params.af_channel}" : ""
     """
@@ -96,7 +102,9 @@ process ExtractRegions {
         --roi_col_size ${params.roi_col_size} \
         --overlap ${params.region_overlap} \
         ${af_flag} \
-        --save_regions
+        --save_regions \
+        --nuclei_channel ${params.nuclei_channel} \
+        ${lazy_load_regions}
 
     if [ "${params.save_intermediate}" = "true" ]; then
         mkdir -p "${roi_dest}"

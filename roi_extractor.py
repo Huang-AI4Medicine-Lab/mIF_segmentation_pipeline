@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from region_utils import *
 from autofluorescence_utils import apply_saved_global_subtraction
 import json
+import zarr
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -27,6 +28,8 @@ parser.add_argument('--num_thresholds', default=2)
 parser.add_argument('--thresh_mode', default='min')
 parser.add_argument('--channel_reduce', default='max')
 parser.add_argument('--single_channel', action='store_true')
+parser.add_argument('--lazy_loading', action='store_true')
+parser.add_argument('--nuclei_channel', default=0)
 
 
 args = parser.parse_args()
@@ -48,8 +51,17 @@ num_thresholds = int(args.num_thresholds)
 thresh_mode = args.thresh_mode
 channel_reduce = args.channel_reduce
 single_channel = args.single_channel
+lazy_loading = args.lazy_loading
+nuclei_channel = args.nuclei_channel
 
-src_im = tifffile.imread(image_path)
+if not lazy_loading:
+    src_im = tifffile.imread(image_path)
+    print(f'Source Image Shape: {src_im.shape}')
+else:
+    tif_obj = tifffile.TiffFile(image_path)
+    im_store = tif_obj.aszarr(level=0)
+    src_im = zarr.open(im_store, mode='r')
+
 
 save_folder="region_images"
 if not os.path.exists(save_folder):
@@ -57,7 +69,7 @@ if not os.path.exists(save_folder):
 
 
 # here process the mif image and remove autofluorescence
-if remove_autofluorescence:
+if remove_autofluorescence and not lazy_loading:
     print('Removing autofluorescence')
     src_im = apply_saved_global_subtraction(src_im, autofluorescence_params, af_channel=af_channel)
     
@@ -70,7 +82,8 @@ if use_predefined_regions:
 if existing_mask_fname is not None:
     print('Loading existing mask...')
     tissue_mask = tifffile.imread(existing_mask_fname)
-else:
+# don't allow lazy loading for mask creation
+elif existing_mask_fname is None and not lazy_loading:
     print('Segmenting Foreground...')
 
     tissue_mask = extract_tissue_mask(
@@ -80,7 +93,6 @@ else:
         thresh_mode=thresh_mode
     )
 
-print(f'Source Image Shape: {src_im.shape}')
 print(f'Tissue Mask Shape: {tissue_mask.shape}')
 
 overlap_row_size = roi_row_size-(prc_overlap*roi_row_size)
@@ -162,6 +174,16 @@ for row_index in tqdm(range(int(row_end))):
 tifffile.imwrite(f'{sample_name}_roi_mask_im.tif', region_mask_image)
 
 # also make a downsampled version of the painted in image and save it
+
+# if lazy loading create a dapi image here
+if lazy_loading:
+    del src_im
+    sample_zarr = zarr.open(im_store, mode='r')
+    src_im = sample_zarr[nuclei_channel]
+    # restore the channel axis
+    src_im = src_im[np.newaxis,:,:]
+
+
 collapsed_src = np.squeeze(np.max(src_im, axis=0))
 src_small = collapsed_src[::downsample_factor,::downsample_factor]
 mask_small = region_mask_image[::downsample_factor, ::downsample_factor]
