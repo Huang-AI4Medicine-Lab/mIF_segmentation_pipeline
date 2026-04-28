@@ -52,7 +52,7 @@ thresh_mode = args.thresh_mode
 channel_reduce = args.channel_reduce
 single_channel = args.single_channel
 lazy_loading = args.lazy_loading
-nuclei_channel = args.nuclei_channel
+nuclei_channel = int(args.nuclei_channel)
 
 if not lazy_loading:
     src_im = tifffile.imread(image_path)

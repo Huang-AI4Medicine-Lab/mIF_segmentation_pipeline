@@ -25,7 +25,7 @@ channel_reduce = args.channel_reduce
 num_thresholds = int(args.num_thresholds)
 thresh_mode = args.thresh_mode
 lazy_loading = args.lazy_loading
-nuclei_channel = args.nuclei_channel
+nuclei_channel = int(args.nuclei_channel)
 
 print(f'Loading multiplex image...')
 # if performing lazy loading only load the DAPI channel (channel 0)
