@@ -14,7 +14,7 @@ parser.add_argument('--downsample_factor', default=8)
 parser.add_argument('--num_thresholds', default=2)
 parser.add_argument('--thresh_mode', default='min')
 parser.add_argument('--lazy_loading', action='store_true')
-parser.add_argument('--nuclei_channel', default=0)
+parser.add_argument('--tissue_channel', default=0)
 
 args = parser.parse_args()
 
@@ -25,7 +25,7 @@ channel_reduce = args.channel_reduce
 num_thresholds = int(args.num_thresholds)
 thresh_mode = args.thresh_mode
 lazy_loading = args.lazy_loading
-nuclei_channel = int(args.nuclei_channel)
+tissue_channel = int(args.tissue_channel)
 
 print(f'Loading multiplex image...')
 # if performing lazy loading only load the DAPI channel (channel 0)
@@ -35,7 +35,7 @@ else:
     tif_obj = tifffile.TiffFile(image_path)
     im_store = tif_obj.aszarr(level=0)
     sample_zarr = zarr.open(im_store, mode='r')
-    src_im = sample_zarr[nuclei_channel]
+    src_im = sample_zarr[tissue_channel]
     # restore the channel axis
     src_im = src_im[np.newaxis,:,:]
 

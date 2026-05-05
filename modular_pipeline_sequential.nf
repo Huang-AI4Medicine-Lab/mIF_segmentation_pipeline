@@ -26,7 +26,7 @@ process GenerateTissueMask {
         --channel_reduce ${params.channel_reduce} \
         --num_thresholds ${params.num_thresholds} \
         --thresh_mode ${params.thresh_mode} \
-        --nuclei_channel ${params.nuclei_channel} \
+        --tissue_channel ${params.tissue_channel} \
         ${lazy_load_tissue}
     """
 }
